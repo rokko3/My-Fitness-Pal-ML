@@ -6,3 +6,7 @@ Designed to be a fitness chat bot, improve yourself with the new AI
 python -m venv venv
 source venv/bin/activate
 ```
+# Requirements
+```bash
+pip install reflex
+```
