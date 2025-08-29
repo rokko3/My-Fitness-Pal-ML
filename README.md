@@ -9,4 +9,5 @@ source venv/bin/activate
 # Requirements
 ```bash
 pip install reflex
+pip install --upgrade pip
 ```
