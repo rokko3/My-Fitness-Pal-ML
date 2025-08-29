@@ -11,3 +11,8 @@ source venv/bin/activate
 pip install reflex
 pip install --upgrade pip
 ```
+# Iniciar
+```bash
+reflex init
+reflex run
+```
