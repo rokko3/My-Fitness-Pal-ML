@@ -1,4 +1,4 @@
-# My-Fitness-Pal-ML
+# Vitalis
 Designed to be a fitness chat bot, improve yourself with the new AI
 
 # Crear entorno virtual
