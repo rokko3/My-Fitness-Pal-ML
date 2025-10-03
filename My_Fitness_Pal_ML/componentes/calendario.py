@@ -4,36 +4,64 @@ import reflex as rx
 
 from My_Fitness_Pal_ML.componentes.navbar import navbar
 
+# ----------------- Constantes -----------------
+WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+CELL_SIZE = 160          # Tamaño de cada celda (px)
+BORDER_COLOR = "#000"    # Color de bordes principal
+
 
 class CalendarState(rx.State):
-    """Estado para el calendario interactivo."""
+    """Estado del calendario con soporte básico de eventos y CRUD de eventos diarios."""
+
     year: int = datetime.date.today().year
     month: int = datetime.date.today().month
     selected_day: int | None = None
     new_event_text: str = ""
     events: dict[str, list[str]] = {}
 
+    # -------- Helpers internos --------
+    def _last_day(self) -> int:
+        return calendar.monthrange(self.year, self.month)[1]
+
+    def _day_key(self) -> str | None:
+        if not self.selected_day:
+            return None
+        return f"{self.year}-{self.month:02d}-{self.selected_day:02d}"
+
+    # -------- Vars derivadas --------
     @rx.var
-    def month_name(self) -> str:
-        return calendar.month_name[self.month]
-    
-    @rx.var
-    def month_year_display(self) -> str:
-        return f"{self.month_name} {self.year}"
+    def month_year(self) -> str:
+        return f"{calendar.month_name[self.month]} {self.year}"
 
     @rx.var
-    def selected_date_display(self) -> str:
-        if self.selected_day is None:
-            return "Seleccione una fecha"
-        return f"{self.year}-{self.month:02d}-{self.selected_day:02d}"
+    def days_rows(self) -> list[list[int]]:
+        """Filas secuenciales: 1..7, 8..14, etc. (row-major)."""
+        last_day = self._last_day()
+        rows = (last_day + 6) // 7  # ceil sin importar math
+        matrix: list[list[int]] = []
+        day = 1
+        for _ in range(rows):
+            row: list[int] = []
+            for _ in range(7):
+                row.append(day if day <= last_day else 0)
+                day += 1
+            matrix.append(row)
+        return matrix
+
+    @rx.var
+    def selected_label(self) -> str:
+        return (
+            f"{self.year}-{self.month:02d}-{self.selected_day:02d}"
+            if isinstance(self.selected_day, int)
+            else "Seleccione un día"
+        )
 
     @rx.var
     def current_events(self) -> list[str]:
-        if self.selected_day is None:
-            return []
-        key = f"{self.year}-{self.month:02d}-{self.selected_day:02d}"
-        return self.events.get(key, [])
+        key = self._day_key()
+        return self.events.get(key, []) if key else []
 
+    # -------- Navegación --------
     def prev_month(self):
         if self.month == 1:
             self.month = 12
@@ -50,195 +78,196 @@ class CalendarState(rx.State):
             self.month += 1
         self.selected_day = None
 
-    def select_day_1(self): self.selected_day = 1
-    def select_day_2(self): self.selected_day = 2
-    def select_day_3(self): self.selected_day = 3
-    def select_day_4(self): self.selected_day = 4
-    def select_day_5(self): self.selected_day = 5
-    def select_day_6(self): self.selected_day = 6
-    def select_day_7(self): self.selected_day = 7
-    def select_day_8(self): self.selected_day = 8
-    def select_day_9(self): self.selected_day = 9
-    def select_day_10(self): self.selected_day = 10
-    def select_day_11(self): self.selected_day = 11
-    def select_day_12(self): self.selected_day = 12
-    def select_day_13(self): self.selected_day = 13
-    def select_day_14(self): self.selected_day = 14
-    def select_day_15(self): self.selected_day = 15
-    def select_day_16(self): self.selected_day = 16
-    def select_day_17(self): self.selected_day = 17
-    def select_day_18(self): self.selected_day = 18
-    def select_day_19(self): self.selected_day = 19
-    def select_day_20(self): self.selected_day = 20
-    def select_day_21(self): self.selected_day = 21
-    def select_day_22(self): self.selected_day = 22
-    def select_day_23(self): self.selected_day = 23
-    def select_day_24(self): self.selected_day = 24
-    def select_day_25(self): self.selected_day = 25
-    def select_day_26(self): self.selected_day = 26
-    def select_day_27(self): self.selected_day = 27
-    def select_day_28(self): self.selected_day = 28
-    def select_day_29(self): self.selected_day = 29
-    def select_day_30(self): self.selected_day = 30
-    def select_day_31(self): self.selected_day = 31
-
-    def add_event(self):
-        if self.selected_day is None or not self.new_event_text.strip():
+    # -------- Acciones de interacción --------
+    def select_day(self, day: int):
+        if isinstance(day, dict) or not isinstance(day, int) or day == 0:
             return
-        
-        key = f"{self.year}-{self.month:02d}-{self.selected_day:02d}"
-        if key not in self.events:
-            self.events[key] = []
-        self.events[key].append(self.new_event_text.strip())
-        self.new_event_text = ""
+        self.selected_day = day
 
     def set_new_event_text(self, value: str):
         self.new_event_text = value
 
+    def add_event(self):
+        key = self._day_key()
+        txt = self.new_event_text.strip()
+        if not key or not txt:
+            return
+        self.events.setdefault(key, []).append(txt)
+        self.new_event_text = ""
 
-def create_day_button(day_num: int, handler) -> rx.Component:
-    """Crea un botón para un día específico del calendario."""
-    if day_num == 0:
-        return rx.box(height="60px", width="100%")
-    
-    return rx.box(
-        rx.text(str(day_num)),
-        padding="8px",
-        height="60px",
-        width="100%",
-        border="1px solid #e2e8f0",
-        border_radius="md",
-        bg=rx.cond(CalendarState.selected_day == day_num, "#3182ce", "white"),
-        color=rx.cond(CalendarState.selected_day == day_num, "white", "black"),
-        cursor="pointer",
-        _hover={"bg": rx.cond(CalendarState.selected_day == day_num, "#63b3ed", "#f7fafc")},
-        on_click=handler,
-        display="flex",
-        align_items="flex-start",
-        justify_content="flex-start"
+    def delete_event(self, ev: str):
+        key = self._day_key()
+        if not key:
+            return
+        if ev in self.events.get(key, []):
+            self.events[key].remove(ev)
+            if not self.events[key]:
+                del self.events[key]
+
+
+# ----------------- Render de celdas -----------------
+def day_cell(day: int | rx.Var) -> rx.Component:
+    """Render de una celda de día (vacía si day == 0)."""
+    base_styles = dict(
+        height=f"{CELL_SIZE}px",
+        width=f"{CELL_SIZE}px",
+        border_radius="6px",
+        transition="all 0.15s ease",
+    )
+    return rx.cond(
+        day == 0,
+        rx.box(
+            "",
+            bg="#f1f5f9",
+            border=f"1px solid {BORDER_COLOR}",
+            **base_styles,
+        ),
+        rx.box(
+            rx.text(
+                day,
+                font_size="22px",
+                font_weight="bold",
+                margin_bottom="8px",
+                color=rx.cond(CalendarState.selected_day == day, "white", "black"),
+            ),
+            padding="8px",
+            bg=rx.cond(CalendarState.selected_day == day, "#2563eb", "white"),
+            color=rx.cond(CalendarState.selected_day == day, "white", "black"),
+            border=rx.cond(
+                CalendarState.selected_day == day,
+                "2px solid #1d4ed8",
+                f"1px solid {BORDER_COLOR}",
+            ),
+            cursor="pointer",
+            _hover={"bg": rx.cond(CalendarState.selected_day == day, "#1d4ed8", "#e2e8f0")},
+            display="flex",
+            flex_direction="column",
+            align_items="flex-start",
+            justify_content="flex-start",
+            gap="4px",
+            on_click=lambda _day=day: CalendarState.select_day(_day),
+            **base_styles,
+        ),
     )
 
 
-def calendario_page() -> rx.Component:
-    """Página principal del calendario."""
-    # Headers de días de la semana
-    weekday_headers = [
-        rx.box(rx.text("Lun", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Mar", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Mié", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Jue", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Vie", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Sáb", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-        rx.box(rx.text("Dom", font_weight="bold"), padding="8px", text_align="center", bg="#f7fafc"),
-    ]
+# ----------------- Matriz de calendario -----------------
+def calendar_matrix() -> rx.Component:
+    """Filas secuenciales (1..7, 8..14, ...) con encabezado de días de la semana."""
+    header = rx.hstack(
+        *[
+            rx.box(
+                rx.text(dia, font_weight="bold", font_size="16px", color="black"),
+                width=f"{CELL_SIZE}px",
+                text_align="center",
+            )
+            for dia in WEEKDAYS
+        ],
+        spacing="3",
+        align="start",
+    )
 
-    # Crear calendario simple con días del 1 al 31
-    calendar_days = [
-        create_day_button(1, CalendarState.select_day_1),
-        create_day_button(2, CalendarState.select_day_2),
-        create_day_button(3, CalendarState.select_day_3),
-        create_day_button(4, CalendarState.select_day_4),
-        create_day_button(5, CalendarState.select_day_5),
-        create_day_button(6, CalendarState.select_day_6),
-        create_day_button(7, CalendarState.select_day_7),
-        create_day_button(8, CalendarState.select_day_8),
-        create_day_button(9, CalendarState.select_day_9),
-        create_day_button(10, CalendarState.select_day_10),
-        create_day_button(11, CalendarState.select_day_11),
-        create_day_button(12, CalendarState.select_day_12),
-        create_day_button(13, CalendarState.select_day_13),
-        create_day_button(14, CalendarState.select_day_14),
-        create_day_button(15, CalendarState.select_day_15),
-        create_day_button(16, CalendarState.select_day_16),
-        create_day_button(17, CalendarState.select_day_17),
-        create_day_button(18, CalendarState.select_day_18),
-        create_day_button(19, CalendarState.select_day_19),
-        create_day_button(20, CalendarState.select_day_20),
-        create_day_button(21, CalendarState.select_day_21),
-        create_day_button(22, CalendarState.select_day_22),
-        create_day_button(23, CalendarState.select_day_23),
-        create_day_button(24, CalendarState.select_day_24),
-        create_day_button(25, CalendarState.select_day_25),
-        create_day_button(26, CalendarState.select_day_26),
-        create_day_button(27, CalendarState.select_day_27),
-        create_day_button(28, CalendarState.select_day_28),
-        create_day_button(29, CalendarState.select_day_29),
-        create_day_button(30, CalendarState.select_day_30),
-        create_day_button(31, CalendarState.select_day_31),
-    ]
+    rows = rx.foreach(
+        CalendarState.days_rows,
+        lambda fila: rx.hstack(
+            rx.foreach(fila, day_cell),
+            spacing="3",
+            align="start",
+        ),
+    )
 
-    # Panel de eventos simplificado
-    eventos_panel = rx.box(
-        rx.heading("Eventos", size="5"),
-        rx.text(CalendarState.selected_date_display, color="gray.600"),
+    return rx.vstack(header, rows, spacing="3", width="100%", align="start")
+
+
+# ----------------- Panel de eventos -----------------
+def events_panel() -> rx.Component:
+    return rx.box(
+        rx.heading("Eventos", size="5", color="black"),
+        rx.text(CalendarState.selected_label, color="black"),
         rx.cond(
             CalendarState.selected_day != None,
             rx.vstack(
                 rx.hstack(
                     rx.input(
                         value=CalendarState.new_event_text,
-                        placeholder="Agregar nuevo evento...",
+                        placeholder="Nuevo evento...",
                         on_change=CalendarState.set_new_event_text,
-                        flex="1"
+                        flex="1",
                     ),
-                    rx.button(
-                        "Agregar",
-                        on_click=CalendarState.add_event,
-                        color_scheme="blue"
-                    ),
+                    rx.button("Agregar", on_click=CalendarState.add_event, size="2"),
                     spacing="2",
-                    width="100%"
+                    width="100%",
                 ),
                 rx.foreach(
                     CalendarState.current_events,
-                    lambda event: rx.box(
-                        rx.text(event),
-                        padding="8px",
-                        border="1px solid #e2e8f0",
-                        border_radius="md",
-                        width="100%"
-                    )
+                    lambda ev: rx.hstack(
+                        rx.text(ev, flex="1"),
+                        rx.button(
+                            "X",
+                            on_click=lambda ev_text=ev: CalendarState.delete_event(ev_text),
+                            size="1",
+                            color_scheme="red",
+                            variant="outline",
+                        ),
+                        align="center",
+                        width="100%",
+                        padding="6px 8px",
+                        border=f"1px solid {BORDER_COLOR}",
+                        border_radius="6px",
+                        gap="8px",
+                    ),
                 ),
                 spacing="3",
-                width="100%"
+                width="100%",
             ),
-            rx.text("Seleccione un día para ver o agregar eventos", color="gray.500")
+            rx.text("Seleccione un día para gestionar eventos", color="gray.500"),
         ),
-        padding="20px",
-        border="1px solid #e2e8f0",
-        border_radius="md",
+        padding="16px",
+        border=f"1px solid {BORDER_COLOR}",
+        border_radius="8px",
         bg="white",
-        width="100%"
+        width="100%",
+        max_width="420px",
     )
 
-    return rx.container(
+
+# ----------------- Página principal -----------------
+def calendario_page() -> rx.Component:
+    return rx.box(
         navbar(),
         rx.vstack(
-            # Header con controles de navegación
             rx.hstack(
-                rx.button("◀", on_click=CalendarState.prev_month, variant="outline"),
-                rx.heading(CalendarState.month_year_display, size="6", text_align="center", flex="1"),
-                rx.button("▶", on_click=CalendarState.next_month, variant="outline"),
-                spacing="4",
+                rx.button("◀", on_click=CalendarState.prev_month, variant="outline", size="3"),
+                rx.heading(CalendarState.month_year, size="6", flex="1", text_align="center", color="black"),
+                rx.button("▶", on_click=CalendarState.next_month, variant="outline", size="3"),
+                width="100%",
                 align="center",
-                width="100%"
+                padding_y="8px",
+                padding_x="12px",
+                bg="#f1f5f9",
+                border_radius="8px",
+                gap="12px",
             ),
-            
-            # Calendario
-            rx.vstack(
-                rx.grid(*weekday_headers, template_columns="repeat(7, 1fr)", gap="1px", width="100%"),
-                rx.grid(*calendar_days, template_columns="repeat(7, 1fr)", gap="1px", width="100%"),
-                spacing="0",
-                width="100%"
+            rx.hstack(
+                calendar_matrix(),
+                events_panel(),
+                align="start",
+                spacing="5",
+                width="100%",
+                flex="1",
+                flex_wrap="wrap",
             ),
-            
-            # Panel de eventos
-            eventos_panel,
-            
-            spacing="6",
+            spacing="5",
             width="100%",
-            padding="20px"
+            padding="16px",
+            max_width="1500px",
+            margin="0 auto",
+            flex="1",
         ),
-        max_width="800px",
-        center_content=True
+        display="flex",
+        flex_direction="column",
+        width="100%",
+        min_height="100vh",
+        bg="#e2e8f0",
+        padding_bottom="24px",
     )
