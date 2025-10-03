@@ -1,6 +1,7 @@
 import reflex as rx
 from My_Fitness_Pal_ML.componentes.navbar import navbar
 from My_Fitness_Pal_ML.componentes.chat import chat_page
+from My_Fitness_Pal_ML.componentes.calendario import calendario_page
 from rxconfig import config
 
 
@@ -51,3 +52,4 @@ app = rx.App(
 )
 app.add_page(index, route="/")
 app.add_page(chat_page, route="/chat", title="Chat")
+app.add_page(calendario_page, route="/calendario", title="Calendario")

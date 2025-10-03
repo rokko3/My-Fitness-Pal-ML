@@ -6,6 +6,10 @@ class ChatState(rx.State):
     messages: list[tuple[str, str]] = [] 
     current_message: str = ""
 
+    def set_current_message(self, value: str):
+        """Setter explícito para current_message (evita deprecación)."""
+        self.current_message = value
+
     def send_message(self):
         """Enviar mensaje al chat."""
         if self.current_message.strip():
